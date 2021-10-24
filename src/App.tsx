@@ -1,7 +1,7 @@
 import { ChakraProvider, DarkMode, Flex } from "@chakra-ui/react";
 import React from "react";
 import "./App.css";
-import AppsWrapper from "./components/AppsWrapper";
+import AppContainer from "./components/AppContainer";
 
 const App = (): JSX.Element => {
   return (
@@ -16,7 +16,7 @@ const App = (): JSX.Element => {
           w="400px"
           h="full"
         >
-          <AppsWrapper />
+          <AppContainer />
         </Flex>
       </DarkMode>
     </ChakraProvider>

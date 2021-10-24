@@ -1,10 +1,26 @@
-import { ChromeMessage, LiveCommentIn, Message, Sender } from "../types";
-import {
-  fetchGraphQL,
-  fetchLiveComments,
-  createFileSnippet,
-} from "../helperFunctions";
-import { GET_VIDEO_FILESNIPPET } from "../schemas";
+import { ChromeMessage, Message, Sender, Tab } from "../types";
+
+let articleTabs: number[] = []
+let currentTab = 0
+
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  console.log("Tab activated: ", articleTabs);
+  currentTab = activeInfo.tabId
+  if (articleTabs.find(value => value === activeInfo.tabId)) {
+    chrome.browserAction.setBadgeBackgroundColor({color:[220,53,70,255]});
+    chrome.browserAction.setBadgeText({text:" "});
+  }
+  else {
+    chrome.browserAction.setBadgeText({text:""});
+  }
+})
+chrome.tabs.onRemoved.addListener((tabId, tabInfo) => {
+  articleTabs = articleTabs.filter((value) => tabId !== value)
+  console.log("Tab removed: ", tabId, tabInfo);
+})
+
+
 
 const onUpdatedListener = (
   tabId: number,
@@ -14,14 +30,26 @@ const onUpdatedListener = (
   if (changeInfo && changeInfo.status) {
     const payload = {
       status: changeInfo.status,
-      url: tab.url,
     };
     console.log("Sending status update: ", payload);
-
+    if (changeInfo.status === "loading" && articleTabs.find(value => value === tabId)) {
+      articleTabs = articleTabs.filter((value) => tabId !== value)
+      // chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+      //   console.log("Tab loading: ", tabs[0].id, tabs[0].url);
+        
+      //   if (tabs[0].id === tabId) {
+      //     chrome.browserAction.setBadgeText({text:" "});
+      //   }
+      // });
+    }
+    if (changeInfo.status === "complete") {
+      articleTabs = articleTabs.filter((value) => tab.id !== value)
+      chrome.browserAction.setBadgeText({text:""})
+    }
     const message: ChromeMessage = {
       from: Sender.Background,
       message: Message.STATUS_UPDATE,
-      tab: { id: tabId },
+      tab: { url: tab.url, id: tabId },
       payload,
     };
     chrome.tabs.sendMessage(tabId, message);
@@ -29,97 +57,64 @@ const onUpdatedListener = (
 };
 chrome.tabs.onUpdated.addListener(onUpdatedListener);
 
+
+const requestQuiz = async (tab: Tab) => {
+  // const requestOptions = {
+  //   method: "POST",
+  //   headers: {
+  //     "content-type": "application/json",
+  //     "x-hasura-admin-secret": "secret",
+  //   },
+  //   body: {article_url: '...'}.toString(),
+  // };
+  // const database_url = "https://voon-demo.herokuapp.com/v1/graphql";
+  // const res = await fetch(database_url, requestOptions).then((res: any) =>
+  //   res.json()
+  // );
+
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  const res = {quizLink: 'https://chakra-ui.com/docs/form/button'}
+
+  const message: ChromeMessage = {
+    from: Sender.Background,
+    message: Message.QUIZ_LINK,
+    tab: { url: tab.url, id: tab.id },
+    payload: {quizLink: res.quizLink},
+  };
+  if (tab.id) {
+    chrome.tabs.sendMessage(tab.id, message);
+  }
+
+
+  return res;
+}
+
 const onMessageListener = (
   message: ChromeMessage,
   sender: chrome.runtime.MessageSender
 ) => {
   if (
     sender.id === chrome.runtime.id &&
-    (message.from === Sender.React || message.from === Sender.Content) &&
-    message.message === Message.REQUEST_FILESNIPPET
-  ) {
-    console.log("Sending file snippet to tab as requested by React");
-    if (message.tab && message.tab.id && message.tab.url) {
-      sendFileSnippetIfAvailable(message.tab.id, message.tab.url);
-    }
-  }
-  if (
-    sender.id === chrome.runtime.id &&
     message.from === Sender.Content &&
-    message.message === Message.INITIATE_ENVIRONMENT
+    message.message === Message.IS_ARTICLE
   ) {
-    if (message.tab && message.tab.id && message.tab.url) {
-      console.log("Initiating content");
-      initiateEnvironmentIfPossible(message.tab.id, message.tab.url);
-      setTimeout(() => {
-        if (message.tab && message.tab.id && message.tab.url) {
-          sendFileSnippetIfAvailable(message.tab.id, message.tab.url);
-          sendLiveCommentIfAvailable(message.tab.id, message.tab.url);
-        }
-      }, 100);
+    console.log("Article tab: ", sender);
+    if (sender && sender.tab && sender.tab.id && sender.tab.url) {
+      articleTabs.push(sender.tab.id)
+      chrome.browserAction.setBadgeBackgroundColor({color:[220,53,70,255]});
+      chrome.browserAction.setBadgeText({text:" "});
+      requestQuiz({url: sender.tab.url, id: sender.tab.id})
     }
   }
-  if (
-    sender.id === chrome.runtime.id &&
-    message.from === Sender.React &&
-    message.message === Message.CREATE_FILESNIPPET
-  ) {
-    console.log("Creating file snippet as requested by React");
-
-    if (message.tab && message.tab.url && message.tab.id) {
-      createFileSnippet(message.tab.url, message.payload.fps);
-    }
-  }
+  // if (
+  //   sender.id === chrome.runtime.id &&
+  //   (message.from === Sender.React || message.from === Sender.Content) &&
+  //   message.message === Message.REQUEST_FILESNIPPET
+  // ) {
+  //   console.log("Sending file snippet to tab as requested by React");
+  //   if (message.tab && message.tab.id && message.tab.url) {
+  //     sendFileSnippetIfAvailable(message.tab.id, message.tab.url);
+  //   }
+  // }
 };
 chrome.runtime.onMessage.addListener(onMessageListener);
-const initiateEnvironmentIfPossible = async (tabId: number, url: string) => {
-  if (url && url.includes("www.youtube.com/watch?v=")) {
-    console.log(`Inititating environment for ${url}`);
-    const message: ChromeMessage = {
-      from: Sender.Background,
-      message: Message.INITIATE_ENVIRONMENT,
-      payload: { url },
-    };
-    chrome.tabs.sendMessage(tabId, message);
-  } else {
-    console.log(`Not a youtube video ${url}`);
-  }
-};
-const sendFileSnippetIfAvailable = async (tabId: number, url: string) => {
-  if (url && url.includes("www.youtube.com/watch?v=")) {
-    const videoId = url.includes("v=") ? url.split("v=")[1] : url.split("/")[4];
-    const variables = { videoId };
-    const getFileSnippet = await fetchGraphQL(GET_VIDEO_FILESNIPPET, variables);
-    const fileSnippet = getFileSnippet.data.video_by_pk
-      ? getFileSnippet.data.video_by_pk.fileSnippets[0]
-      : undefined;
-    console.log("fileSnippet: ", fileSnippet);
-
-    if (fileSnippet) {
-      const message: ChromeMessage = {
-        from: Sender.Background,
-        message: Message.ACTIVATE_FILESNIPPET,
-        payload: { fileSnippet },
-      };
-      chrome.tabs.sendMessage(tabId, message);
-    }
-  }
-};
-const sendLiveCommentIfAvailable = async (tabId: number, url: string) => {
-  if (url && url.includes("www.youtube.com/watch?v=")) {
-    const videoId = url.includes("v=") ? url.split("v=")[1] : url.split("/")[4];
-    const variables: LiveCommentIn = { videoId };
-    const getLiveComment = await fetchLiveComments(variables);
-    const liveComments = getLiveComment.liveComments;
-    console.log("liveComments: ", liveComments);
-
-    if (liveComments) {
-      const message: ChromeMessage = {
-        from: Sender.Background,
-        message: Message.ACTIVATE_LIVECOMMENT,
-        payload: { liveComments },
-      };
-      chrome.tabs.sendMessage(tabId, message);
-    }
-  }
-};

@@ -1,6 +1,6 @@
 {
-  "name": "Voon",
-  "description": "Video amplification super-app primarily built for YouTube.",
+  "name": "HackDuke",
+  "description": "Knowledge quantifier",
   "version": "1.0",
   "manifest_version": 2,
   "browser_action": {
@@ -8,7 +8,7 @@
     "default_title": "Open the popup"
   },
   "icons": {
-    "512": "logo.png"
+    "512": "logo512_w.png"
   },
   "permissions": [
     "activeTab",

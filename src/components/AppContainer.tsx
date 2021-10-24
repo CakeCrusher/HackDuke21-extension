@@ -1,122 +1,117 @@
-import React, { FunctionComponent, useState } from "react";
-import { Flex, Text, Icon } from "@chakra-ui/react";
+import React, { FunctionComponent, useEffect, useState } from "react";
+import { Flex, Text, Icon, Button } from "@chakra-ui/react";
+import {RiLightbulbFlashFill, RiFlashlightFill} from 'react-icons/ri';
 import "../App.css";
+import LoginForm from "./LoginForm";
+import UserInfo from "./UserInfo";
+import { ChromeMessage, Message, Sender, User } from "../types";
 
-type AppProps = {
-  color: string;
-  title: string;
-  description: string;
-  icon: any;
-  children: any;
-  activated: boolean;
-  setActivated: (state: boolean) => void;
-};
+// type AppProps = {
+//   color: string;
+//   title: string;
+//   description: string;
+//   icon: any;
+//   children: any;
+//   activated: boolean;
+//   setActivated: (state: boolean) => void;
+// };
 
-const AppContainer: FunctionComponent<AppProps> = (props) => {
-  const [hovered, setHovered] = useState(false);
-  // const [activated, setActivated] = useState(false);
-  const [iconHovered, setIconHovered] = useState(false);
+const AppContainer: FunctionComponent = (props) => {
+  const [user, setUser] = useState<User|null>(null);
+  useEffect(() => {
+    chrome.storage.sync.get(["user"], (res) => {
+      if (res.user) {
+        console.log("user", res.user);
+        
+        setUser(res.user);
+      }
+    })
+  }, [])
 
-  const descriptionStyle = hovered
-    ? { maxHeight: "100px" }
-    : { maxHeight: "0" };
+  const onNavigateToQuiz = () => {
+    console.log("navigating to quiz");
+    
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const message: ChromeMessage = {
+        from: Sender.React,
+        message: Message.NAVIGATE_TO_QUIZ,
+      };
+      if (tabs && tabs[0].id) {
+        chrome.tabs.sendMessage(tabs[0].id, message);
+      }
+    })
+  }
 
-  const colorSliverStyle = iconHovered ? { width: "73px" } : { width: "3px" };
-  const appContentStyle = iconHovered
-    ? { paddingLeft: "0px" }
-    : { paddingLeft: "70px" };
+  const onChangeUser = () => {
+    const customUser: User = {
+      username: "CakeCrusher",
+      password: "secret",
+      points: [
+        {
+          points: 10,
+          article: "tiny.url/1",
+          topic: "number"
+        },
+        {
+          points: 55,
+          article: "tiny.url/one",
+          topic: "text"
+        },
+      ]
 
-  const activatedAppContainer = (
+    }
+    if (user) {
+      chrome.storage.sync.set({user: null})
+    } else {
+      chrome.storage.sync.set({user: customUser})
+    }
+  }
+  const onSetUser = () => {
+    chrome.storage.sync.get(["user"], (res) => {
+      setUser(res.user);
+    })
+  }
+  // create a Flex component that shows the BsFillBookFill in Icon  with a title on the right side
+
+  return (
     <Flex
-      direction="row"
-      className="appContainer"
-      w="full"
-      onMouseOver={() => setHovered(true)}
-      onMouseOut={() => setHovered(false)}
-      bg={props.color}
+      direction="column"
     >
       <Flex
-        className="colorSliver"
-        style={colorSliverStyle}
-        bg="rgba(0,0,0,0.5)"
+        direction="row"
+        align="center"
+        justify="center"
+        w="100%"
       >
-        <Flex
-          onClick={() => props.setActivated(!props.activated)}
-          onMouseOver={() => setIconHovered(true)}
-          onMouseOut={() => setIconHovered(false)}
-          just="center"
-          align="center"
-          margin="25px 0px"
-          className="appIconContainer"
-        >
-          <Icon
-            as={props.icon}
-            className="appIcon"
-            h="10"
-            w="16"
-            color="white"
-          />
-        </Flex>
+        <Icon
+          as={RiLightbulbFlashFill}
+          h="8"
+          w="8"
+          m="1"
+          color="white"
+        />
+        <Text
+          fontSize="2xl"
+          fontWeight="bold"
+          color="white"
+        >Wisdom</Text>
       </Flex>
-      <Flex w="full" style={appContentStyle} className="appContentContainer">
-        <Flex w="full" direction="column" margin="10px 10px">
-          {props.children}
-        </Flex>
-      </Flex>
+      {user ? <UserInfo user={user} /> : <LoginForm />}
+      <Button
+        colorScheme="blue"
+        m="2"
+        onClick={onNavigateToQuiz}
+      >Navigate to quiz</Button>
+      <Button
+        colorScheme="blue"
+        onClick={onChangeUser}
+      >Change User</Button>
+      <Button
+        colorScheme="blue"
+        onClick={onSetUser}
+      >Set User</Button>
     </Flex>
-  );
-
-  const deactivatedAppContainer = (
-    <Flex
-      direction="row"
-      className="appContainer"
-      w="full"
-      onMouseOver={() => setHovered(true)}
-      onMouseOut={() => setHovered(false)}
-    >
-      <Flex className="colorSliver" style={colorSliverStyle} bg={props.color}>
-        <Flex
-          onClick={() => props.setActivated(!props.activated)}
-          onMouseOver={() => setIconHovered(true)}
-          onMouseOut={() => setIconHovered(false)}
-          just="center"
-          align="center"
-          margin="25px 0px"
-          className="appIconContainer"
-        >
-          <Icon
-            as={props.icon}
-            className="appIcon"
-            h="10"
-            w="16"
-            color="white"
-          />
-        </Flex>
-      </Flex>
-      <Flex
-        w="full"
-        className="appContentContainer"
-        style={appContentStyle}
-        direction="column"
-      >
-        <Flex direction="column" margin="0px 10px">
-          <Text fontSize="2xl" fontWeight="bold">
-            {props.title}
-          </Text>
-          <Text
-            style={descriptionStyle}
-            className="appDescription"
-            overflow="hidden"
-            fontSize="lg"
-          >
-            {props.description}
-          </Text>
-        </Flex>
-      </Flex>
-    </Flex>
-  );
-
-  return props.activated ? activatedAppContainer : deactivatedAppContainer;
+  )
 };
 
 export default AppContainer;

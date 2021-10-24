@@ -16,6 +16,9 @@ export enum Message {
   VIDEODETAILS = "video details",
   RESET_CONTENT = "reset content",
   STATUS_UPDATE = "status update",
+  IS_ARTICLE = "is article",
+  QUIZ_LINK = "quiz link",
+  NAVIGATE_TO_QUIZ = "navigate to quiz",
 }
 
 export interface ChromeMessage {
@@ -23,6 +26,23 @@ export interface ChromeMessage {
   message: string;
   tab?: Tab;
   payload?: any;
+}
+
+export type Points  = {
+  points: number;
+  article: string;
+  topic: string;
+}
+
+export type Tab = {
+  url: string | undefined;
+  id: number | undefined;
+}
+
+export type User = {
+  username: string;
+  password: string;
+  points: Points[];
 }
 
 export type OnUpdateFeed = {
@@ -39,11 +59,6 @@ export type LiveCommentOut = {
 type ReplyOut = {
   comment: string;
   user: string;
-};
-
-export type Tab = {
-  id?: number;
-  url?: string;
 };
 
 export type MessageResponse = (response?: any) => void;
